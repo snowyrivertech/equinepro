@@ -1,0 +1,51 @@
+{
+  "name": "Barn",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the barn/facility"
+    },
+    "location": {
+      "type": "string",
+      "description": "Physical location/address of the barn"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the barn facility"
+    },
+    "owner_name": {
+      "type": "string",
+      "description": "Name of the barn owner/manager"
+    },
+    "contact_email": {
+      "type": "string",
+      "description": "Contact email for the barn"
+    },
+    "contact_phone": {
+      "type": "string",
+      "description": "Contact phone number for the barn"
+    },
+    "max_horses": {
+      "type": "number",
+      "description": "Maximum number of horses the barn can accommodate"
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "allow_public_viewing": {
+          "type": "boolean",
+          "default": false
+        },
+        "require_approval_for_new_users": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  },
+  "required": [
+    "name",
+    "location"
+  ]
+}
