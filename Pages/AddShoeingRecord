@@ -1,0 +1,187 @@
+import React, { useState, useEffect } from "react";
+import { VetVisit } from "@/entities/VetVisit";
+import { Horse } from "@/entities/Horse";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Stethoscope, Plus, X } from "lucide-react";
+
+export default function AddVetVisit() {
+  const navigate = useNavigate();
+  const [horse, setHorse] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [visitData, setVisitData] = useState({
+    horse_id: "",
+    visit_date: new Date().toISOString().split('T')[0],
+    visit_type: "",
+    vet_name: "",
+    diagnosis: "",
+    treatment: "",
+    medications: [""],
+    cost: "",
+    follow_up_date: "",
+    notes: "",
+    vital_signs: { temperature: "", heart_rate: "", respiratory_rate: "" }
+  });
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const horseId = urlParams.get('horse_id');
+
+  useEffect(() => {
+    if (horseId) {
+      setVisitData(prev => ({ ...prev, horse_id: horseId }));
+      const fetchHorse = async () => {
+        const horses = await Horse.list();
+        const foundHorse = horses.find(h => h.id === horseId);
+        setHorse(foundHorse);
+      };
+      fetchHorse();
+    }
+  }, [horseId]);
+
+  const handleInputChange = (field, value) => {
+    setVisitData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleVitalsChange = (field, value) => {
+    setVisitData(prev => ({
+      ...prev,
+      vital_signs: { ...prev.vital_signs, [field]: value }
+    }));
+  };
+
+  const handleMedicationChange = (index, value) => {
+    setVisitData(prev => ({
+      ...prev,
+      medications: prev.medications.map((med, i) => i === index ? value : med)
+    }));
+  };
+
+  const addMedication = () => {
+    setVisitData(prev => ({ ...prev, medications: [...prev.medications, ""] }));
+  };
+
+  const removeMedication = (index) => {
+    setVisitData(prev => ({ ...prev, medications: prev.medications.filter((_, i) => i !== index) }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!visitData.horse_id || !visitData.visit_type || !visitData.vet_name) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const dataToSubmit = {
+        ...visitData,
+        cost: visitData.cost ? parseFloat(visitData.cost) : undefined,
+        medications: visitData.medications.filter(med => med.trim() !== ""),
+        vital_signs: {
+          temperature: visitData.vital_signs.temperature ? parseFloat(visitData.vital_signs.temperature) : undefined,
+          heart_rate: visitData.vital_signs.heart_rate ? parseInt(visitData.vital_signs.heart_rate) : undefined,
+          respiratory_rate: visitData.vital_signs.respiratory_rate ? parseInt(visitData.vital_signs.respiratory_rate) : undefined,
+        }
+      };
+      await VetVisit.create(dataToSubmit);
+      navigate(createPageUrl(`HorseDetails?id=${horseId}`));
+    } catch (error) {
+      console.error("Error creating vet visit:", error);
+      alert("Error creating vet visit. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleCancel = () => {
+    navigate(horseId ? createPageUrl(`HorseDetails?id=${horseId}`) : createPageUrl("Horses"));
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" onClick={handleCancel} className="border-amber-300 text-amber-700 hover:bg-amber-50">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Add Vet Visit Record</h1>
+            <p className="text-amber-700">For {horse ? horse.name : 'your horse'}</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <Card className="bg-white/70 backdrop-blur-sm border-amber-200">
+            <CardHeader><CardTitle className="flex items-center gap-2"><Stethoscope className="w-5 h-5 text-amber-600" />Visit Details</CardTitle></CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="visit_date">Visit Date *</Label>
+                  <Input id="visit_date" type="date" value={visitData.visit_date} onChange={(e) => handleInputChange('visit_date', e.target.value)} required className="border-amber-200 focus:border-amber-400"/>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="visit_type">Visit Type *</Label>
+                  <Select value={visitData.visit_type} onValueChange={(value) => handleInputChange('visit_type', value)}>
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400"><SelectValue placeholder="Select visit type" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Routine Checkup">Routine Checkup</SelectItem>
+                      <SelectItem value="Vaccination">Vaccination</SelectItem>
+                      <SelectItem value="Dental">Dental</SelectItem>
+                      <SelectItem value="Emergency">Emergency</SelectItem>
+                      <SelectItem value="Lameness Exam">Lameness Exam</SelectItem>
+                      <SelectItem value="Pre-Purchase Exam">Pre-Purchase Exam</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="vet_name">Veterinarian *</Label>
+                  <Input id="vet_name" value={visitData.vet_name} onChange={(e) => handleInputChange('vet_name', e.target.value)} required className="border-amber-200 focus:border-amber-400"/>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cost">Cost ($)</Label>
+                  <Input id="cost" type="number" min="0" step="0.01" value={visitData.cost} onChange={(e) => handleInputChange('cost', e.target.value)} className="border-amber-200 focus:border-amber-400"/>
+                </div>
+              </div>
+
+              <div className="space-y-2"><Label htmlFor="diagnosis">Diagnosis</Label><Textarea id="diagnosis" value={visitData.diagnosis} onChange={(e) => handleInputChange('diagnosis', e.target.value)} className="border-amber-200 focus:border-amber-400 h-24"/></div>
+              <div className="space-y-2"><Label htmlFor="treatment">Treatment</Label><Textarea id="treatment" value={visitData.treatment} onChange={(e) => handleInputChange('treatment', e.target.value)} className="border-amber-200 focus:border-amber-400 h-24"/></div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between"><Label>Medications</Label><Button type="button" variant="outline" size="sm" onClick={addMedication} className="border-amber-300 text-amber-700 hover:bg-amber-50"><Plus className="w-4 h-4 mr-2" />Add Med</Button></div>
+                <div className="space-y-2">
+                  {visitData.medications.map((med, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input value={med} onChange={(e) => handleMedicationChange(index, e.target.value)} placeholder="e.g., Bute, 1g twice daily" className="border-amber-200 focus:border-amber-400"/>
+                      {visitData.medications.length > 1 && (<Button type="button" variant="ghost" size="icon" onClick={() => removeMedication(index)} className="text-red-500 hover:text-red-700"><X className="w-4 h-4" /></Button>)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Vital Signs</Label>
+                <div className="grid grid-cols-3 gap-4 p-4 border border-amber-200 rounded-lg">
+                  <Input placeholder="Temp °F" type="number" step="0.1" value={visitData.vital_signs.temperature} onChange={(e) => handleVitalsChange('temperature', e.target.value)} />
+                  <Input placeholder="HR (bpm)" type="number" value={visitData.vital_signs.heart_rate} onChange={(e) => handleVitalsChange('heart_rate', e.target.value)} />
+                  <Input placeholder="RR (bpm)" type="number" value={visitData.vital_signs.respiratory_rate} onChange={(e) => handleVitalsChange('respiratory_rate', e.target.value)} />
+                </div>
+              </div>
+
+              <div className="space-y-2"><Label htmlFor="follow_up_date">Follow-up Date</Label><Input id="follow_up_date" type="date" value={visitData.follow_up_date} onChange={(e) => handleInputChange('follow_up_date', e.target.value)} className="border-amber-200 focus:border-amber-400"/></div>
+              <div className="space-y-2"><Label htmlFor="notes">Additional Notes</Label><Textarea id="notes" value={visitData.notes} onChange={(e) => handleInputChange('notes', e.target.value)} className="border-amber-200 focus:border-amber-400 h-24"/></div>
+              <div className="flex justify-end gap-3 pt-6"><Button type="button" variant="outline" onClick={handleCancel} className="border-amber-300 text-amber-700 hover:bg-amber-50">Cancel</Button><Button type="submit" disabled={isLoading} className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700">{isLoading ? 'Saving...' : 'Save Visit'}</Button></div>
+            </CardContent>
+          </Card>
+        </form>
+      </div>
+    </div>
+  );
+}
