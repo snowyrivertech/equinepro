@@ -1,0 +1,145 @@
+
+import React, { useState, useEffect } from "react";
+import { Horse } from "@/entities/Horse";
+import { TrainingLog } from "@/entities/TrainingLog";
+import { VetVisit } from "@/entities/VetVisit";
+import { ShoeingRecord } from "@/entities/ShoeingRecord";
+import { FeedingSchedule } from "@/entities/FeedingSchedule";
+import { User } from "@/entities/User";
+import { Link, useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+import RoleBasedContent from "../components/dashboard/RoleBasedContent";
+import StatsCards from "../components/dashboard/StatsCards";
+import HealthOverviews from "../components/dashboard/HealthOverviews";
+import RecentActivity from "../components/dashboard/RecentActivity";
+import HorseCards from "../components/dashboard/HorseCards";
+
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [horses, setHorses] = useState([]);
+  const [trainingLogs, setTrainingLogs] = useState([]);
+  const [vetVisits, setVetVisits] = useState([]);
+  const [shoeingRecords, setShoeingRecords] = useState([]);
+  const [feedingSchedules, setFeedingSchedules] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        const currentUser = await User.me();
+        setUser(currentUser);
+
+        // Check if user has a barn selected
+        if (!currentUser.current_barn_id) {
+          navigate(createPageUrl("BarnSelection"));
+          return;
+        }
+
+        // Filter all data by current barn
+        const [allHorses, allLogs, allVisits, allShoeing, allFeeding] = await Promise.all([
+          Horse.filter({ barn_id: currentUser.current_barn_id }),
+          TrainingLog.filter({ barn_id: currentUser.current_barn_id }, '-created_date', 10),
+          VetVisit.filter({ barn_id: currentUser.current_barn_id }, '-visit_date'),
+          ShoeingRecord.filter({ barn_id: currentUser.current_barn_id }, '-shoeing_date'),
+          FeedingSchedule.filter({ barn_id: currentUser.current_barn_id })
+        ]);
+
+        let userHorses = [];
+        
+        switch (currentUser.role) {
+          case 'Owner':
+            userHorses = allHorses.filter(h => h.owner_id === currentUser.id);
+            break;
+          case 'Rider':
+            userHorses = allHorses.filter(h => h.rider_id === currentUser.id);
+            break;
+          case 'BarnManager':
+            userHorses = allHorses; // Barn manager sees all horses in their barn
+            break;
+          case 'Vet':
+            userHorses = allHorses.filter(h => h.vet_id === currentUser.id);
+            break;
+          case 'Buyer':
+            userHorses = allHorses.filter(h => h.for_sale);
+            break;
+          default:
+            userHorses = allHorses;
+        }
+
+        setHorses(userHorses);
+
+        const horseIds = userHorses.map(h => h.id);
+        const filterByHorse = (records) => records.filter(r => horseIds.includes(r.horse_id));
+
+        setTrainingLogs(filterByHorse(allLogs));
+        setVetVisits(filterByHorse(allVisits));
+        setShoeingRecords(filterByHorse(allShoeing));
+        setFeedingSchedules(filterByHorse(allFeeding));
+
+      } catch (error) {
+        console.error("Error loading dashboard data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, [navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+            Welcome back, {user?.full_name}
+          </h1>
+          <p className="text-amber-700 text-lg">
+            {user?.role} Dashboard
+          </p>
+        </div>
+
+        <StatsCards 
+          horses={horses}
+          trainingLogs={trainingLogs}
+          vetVisits={vetVisits}
+        />
+
+        <div className="mt-8">
+          <HealthOverviews
+            vetVisits={vetVisits}
+            shoeingRecords={shoeingRecords}
+            feedingSchedules={feedingSchedules}
+            horses={horses}
+          />
+        </div>
+
+        {/* Changed from grid to stacked layout */}
+        <div className="space-y-8 mt-8">
+          <HorseCards horses={horses} userRole={user?.role} />
+          
+          <RecentActivity 
+            trainingLogs={trainingLogs}
+            horses={horses}
+          />
+          
+          <RoleBasedContent 
+            user={user}
+            horses={horses}
+            trainingLogs={trainingLogs}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
