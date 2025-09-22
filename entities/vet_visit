@@ -1,0 +1,85 @@
+{
+  "name": "VetVisit",
+  "type": "object",
+  "properties": {
+    "barn_id": {
+      "type": "string",
+      "description": "ID of the barn"
+    },
+    "horse_id": {
+      "type": "string",
+      "description": "ID of the horse"
+    },
+    "visit_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the vet visit"
+    },
+    "visit_type": {
+      "type": "string",
+      "enum": [
+        "Routine Checkup",
+        "Vaccination",
+        "Dental",
+        "Emergency",
+        "Lameness Exam",
+        "Pre-Purchase Exam",
+        "Other"
+      ],
+      "description": "Type of veterinary visit"
+    },
+    "vet_name": {
+      "type": "string",
+      "description": "Name of the veterinarian"
+    },
+    "diagnosis": {
+      "type": "string",
+      "description": "Veterinary diagnosis or findings"
+    },
+    "treatment": {
+      "type": "string",
+      "description": "Treatment provided or prescribed"
+    },
+    "medications": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of medications prescribed"
+    },
+    "cost": {
+      "type": "number",
+      "description": "Cost of the visit"
+    },
+    "follow_up_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date for follow-up if needed"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes from the visit"
+    },
+    "vital_signs": {
+      "type": "object",
+      "properties": {
+        "temperature": {
+          "type": "number"
+        },
+        "heart_rate": {
+          "type": "number"
+        },
+        "respiratory_rate": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "required": [
+    "barn_id",
+    "horse_id",
+    "visit_date",
+    "visit_type",
+    "vet_name"
+  ]
+}
