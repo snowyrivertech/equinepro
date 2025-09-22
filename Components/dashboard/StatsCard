@@ -1,0 +1,61 @@
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Heart, FileText, Stethoscope, TrendingUp } from "lucide-react";
+
+export default function StatsCards({ horses, trainingLogs, vetVisits }) {
+  const getStatsForRole = () => {
+    return [
+      {
+        title: 'Total Horses',
+        value: horses.length,
+        icon: Heart,
+        color: 'from-rose-500 to-pink-600'
+      },
+      {
+        title: 'Training Sessions',
+        value: trainingLogs.length,
+        icon: FileText,
+        color: 'from-blue-500 to-indigo-600'
+      },
+      {
+        title: 'Vet Visits Logged',
+        value: vetVisits.length,
+        icon: Stethoscope,
+        color: 'from-green-500 to-emerald-600'
+      },
+      {
+        title: 'Avg. Rating',
+        value: trainingLogs.length > 0 
+          ? (trainingLogs.reduce((sum, log) => sum + (log.rating || 0), 0) / trainingLogs.filter(l => l.rating).length).toFixed(1)
+          : 'N/A',
+        icon: TrendingUp,
+        color: 'from-amber-500 to-orange-600'
+      }
+    ];
+  };
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      {getStatsForRole().map((stat, index) => (
+        <Card key={index} className="bg-white/70 backdrop-blur-sm border-amber-200 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden relative">
+          <div className={`absolute top-0 right-0 w-24 h-24 transform translate-x-8 -translate-y-8 bg-gradient-to-r ${stat.color} rounded-full opacity-10`} />
+          <CardHeader className="pb-2 z-10 relative">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-amber-800">
+                {stat.title}
+              </CardTitle>
+              <div className={`p-2 rounded-lg bg-gradient-to-r ${stat.color} bg-opacity-20`}>
+                <stat.icon className="w-4 h-4 text-white" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="z-10 relative">
+            <div className="text-2xl font-bold text-gray-900">
+              {stat.value}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
