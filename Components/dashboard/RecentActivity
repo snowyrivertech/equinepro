@@ -1,0 +1,81 @@
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Heart, Star } from "lucide-react";
+import { format } from "date-fns";
+
+export default function RecentActivity({ trainingLogs, horses }) {
+  const getHorseName = (horseId) => {
+    const horse = horses.find(h => h.id === horseId);
+    return horse ? horse.name : 'Unknown Horse';
+  };
+
+  const getDisciplineColor = (discipline) => {
+    const colors = {
+      'Dressage': 'bg-purple-100 text-purple-800',
+      'Show Jumping': 'bg-blue-100 text-blue-800',
+      'Eventing': 'bg-green-100 text-green-800',
+      'Western': 'bg-yellow-100 text-yellow-800',
+      'Trail': 'bg-orange-100 text-orange-800',
+      'Racing': 'bg-red-100 text-red-800',
+      'Ground Work': 'bg-gray-100 text-gray-800',
+      'Other': 'bg-amber-100 text-amber-800'
+    };
+    return colors[discipline] || 'bg-gray-100 text-gray-800';
+  };
+
+  return (
+    <Card className="bg-white/70 backdrop-blur-sm border-amber-200">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-amber-600" />
+          Recent Activity
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {trainingLogs.length === 0 ? (
+          <div className="text-center py-6">
+            <Calendar className="w-12 h-12 text-amber-400 mx-auto mb-3" />
+            <p className="text-amber-700">No recent training sessions</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {trainingLogs.slice(0, 5).map((log) => (
+              <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg bg-white border border-amber-100">
+                <div className="w-10 h-10 bg-gradient-to-r from-amber-500 to-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Heart className="w-5 h-5 text-white" />
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-medium text-gray-900 truncate">
+                      {getHorseName(log.horse_id)}
+                    </p>
+                    <Badge className={getDisciplineColor(log.discipline)}>
+                      {log.discipline}
+                    </Badge>
+                  </div>
+                  
+                  <p className="text-sm text-gray-600 line-clamp-2">
+                    {log.notes}
+                  </p>
+                  
+                  <div className="flex items-center gap-4 mt-2 text-xs text-amber-700">
+                    <span>{format(new Date(log.date), "MMM d, yyyy")}</span>
+                    {log.duration && <span>{log.duration} min</span>}
+                    {log.rating && (
+                      <div className="flex items-center gap-1">
+                        <Star className="w-3 h-3 fill-current text-amber-500" />
+                        <span>{log.rating}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
