@@ -1,0 +1,57 @@
+{
+  "name": "ShoeingRecord",
+  "type": "object",
+  "properties": {
+    "barn_id": {
+      "type": "string",
+      "description": "ID of the barn"
+    },
+    "horse_id": {
+      "type": "string",
+      "description": "ID of the horse"
+    },
+    "shoeing_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the farrier visit"
+    },
+    "farrier_name": {
+      "type": "string",
+      "description": "Name of the farrier"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "Full Set",
+        "Half Set",
+        "Fronts",
+        "Rears",
+        "Trim",
+        "Reset",
+        "Corrective",
+        "Other"
+      ],
+      "description": "Type of shoeing work done"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Specific notes from the farrier"
+    },
+    "cost": {
+      "type": "number",
+      "description": "Cost of the farrier service"
+    },
+    "next_due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date for next scheduled shoeing"
+    }
+  },
+  "required": [
+    "barn_id",
+    "horse_id",
+    "shoeing_date",
+    "farrier_name",
+    "type"
+  ]
+}
