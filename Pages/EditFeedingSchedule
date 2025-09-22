@@ -1,0 +1,254 @@
+
+import React, { useState, useEffect } from "react";
+import { FeedingSchedule } from "@/entities/FeedingSchedule";
+import { Horse } from "@/entities/Horse";
+import { User } from "@/entities/User";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Utensils, Trash2 } from "lucide-react";
+
+export default function EditFeedingSchedule() {
+  const navigate = useNavigate();
+  const [feeding, setFeeding] = useState(null);
+  const [horse, setHorse] = useState(null);
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [feedingData, setFeedingData] = useState({
+    horse_id: "",
+    feed_type: "",
+    amount: "",
+    time_of_day: "",
+    frequency: "Daily",
+    instructions: ""
+  });
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const feedingId = urlParams.get('id');
+
+  useEffect(() => {
+    if (!feedingId) return;
+
+    const loadFeedingSchedule = async () => {
+      try {
+        const currentUser = await User.me();
+        setUser(currentUser);
+
+        const feedingSchedules = await FeedingSchedule.list();
+        const foundFeeding = feedingSchedules.find(f => f.id === feedingId);
+        
+        if (!foundFeeding) {
+          navigate(createPageUrl("FeedingSchedules"));
+          return;
+        }
+        
+        setFeeding(foundFeeding);
+        setFeedingData(foundFeeding);
+
+        const horses = await Horse.list();
+        const foundHorse = horses.find(h => h.id === foundFeeding.horse_id);
+        setHorse(foundHorse);
+      } catch (error) {
+        console.error("Error loading feeding schedule:", error);
+      }
+    };
+
+    loadFeedingSchedule();
+  }, [feedingId, navigate]);
+
+  const handleInputChange = (field, value) => {
+    setFeedingData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!feedingData.feed_type || !feedingData.amount || !feedingData.time_of_day) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await FeedingSchedule.update(feedingId, feedingData);
+      navigate(createPageUrl(`HorseDetails?id=${feedingData.horse_id}`));
+    } catch (error) {
+      console.error("Error updating feeding schedule:", error);
+      alert("Error updating feeding schedule. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (window.confirm("Are you sure you want to delete this feeding schedule? This action cannot be undone.")) {
+      try {
+        await FeedingSchedule.delete(feedingId);
+        navigate(createPageUrl(`HorseDetails?id=${feedingData.horse_id}`));
+      } catch (error) {
+        console.error("Error deleting feeding schedule:", error);
+        alert("Error deleting feeding schedule. Please try again.");
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    navigate(createPageUrl(`HorseDetails?id=${feedingData.horse_id}`));
+  };
+
+  if (!feeding) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            className="border-amber-300 text-amber-700 hover:bg-amber-50"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold text-gray-900">Edit Feeding Schedule</h1>
+            <p className="text-amber-700">For {horse ? horse.name : 'horse'}</p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={handleDelete}
+            className="border-red-300 text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete
+          </Button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <Card className="bg-white/70 backdrop-blur-sm border-amber-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Utensils className="w-5 h-5 text-amber-600" />
+                Feeding Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="feed_type">Feed Type *</Label>
+                  <Select value={feedingData.feed_type} onValueChange={(value) => handleInputChange('feed_type', value)}>
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400">
+                      <SelectValue placeholder="Select feed type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Hay">Hay</SelectItem>
+                      <SelectItem value="Grain">Grain</SelectItem>
+                      <SelectItem value="Pellets">Pellets</SelectItem>
+                      <SelectItem value="Supplements">Supplements</SelectItem>
+                      <SelectItem value="Treats">Treats</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Amount *</Label>
+                  <Input
+                    id="amount"
+                    value={feedingData.amount}
+                    onChange={(e) => handleInputChange('amount', e.target.value)}
+                    placeholder="e.g., 2 flakes, 3 scoops"
+                    required
+                    className="border-amber-200 focus:border-amber-400"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="time_of_day">Time of Day *</Label>
+                  <Select value={feedingData.time_of_day} onValueChange={(value) => handleInputChange('time_of_day', value)}>
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400">
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Morning">Morning</SelectItem>
+                      <SelectItem value="Midday">Midday</SelectItem>
+                      <SelectItem value="Evening">Evening</SelectItem>
+                      <SelectItem value="Night">Night</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="frequency">Frequency</Label>
+                  <Select value={feedingData.frequency} onValueChange={(value) => handleInputChange('frequency', value)}>
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Daily">Daily</SelectItem>
+                      <SelectItem value="Twice Daily">Twice Daily</SelectItem>
+                      <SelectItem value="Three Times Daily">Three Times Daily</SelectItem>
+                      <SelectItem value="As Needed">As Needed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="instructions">Special Instructions</Label>
+                <Textarea
+                  id="instructions"
+                  value={feedingData.instructions}
+                  onChange={(e) => handleInputChange('instructions', e.target.value)}
+                  placeholder="e.g., Soak pellets, mix with supplements"
+                  className="border-amber-200 focus:border-amber-400 h-24"
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancel}
+                  className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700"
+                >
+                  {isLoading ? 'Saving...' : 'Update Feeding Schedule'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </form>
+        
+        {/* Activity Log */}
+        <Card className="bg-white/70 backdrop-blur-sm border-amber-200 mt-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Activity Log</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm text-gray-600">
+              <p>• Created by {feeding.created_by} on {new Date(feeding.created_date).toLocaleString()}</p>
+              <p>• Last updated on {new Date(feeding.updated_date).toLocaleString()}</p>
+              {user && <p>• Currently being edited by {user.full_name}</p>}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
