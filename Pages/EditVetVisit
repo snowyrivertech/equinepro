@@ -1,0 +1,356 @@
+
+import React, { useState, useEffect } from "react";
+import { VetVisit } from "@/entities/VetVisit";
+import { Horse } from "@/entities/Horse";
+import { User } from "@/entities/User";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Stethoscope, Trash2, Plus, X } from "lucide-react";
+
+export default function EditVetVisit() {
+  const navigate = useNavigate();
+  const [visit, setVisit] = useState(null);
+  const [horse, setHorse] = useState(null);
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [visitData, setVisitData] = useState({
+    horse_id: "",
+    visit_date: "",
+    visit_type: "",
+    vet_name: "",
+    diagnosis: "",
+    treatment: "",
+    medications: [""],
+    cost: "",
+    follow_up_date: "",
+    notes: "",
+    vital_signs: { temperature: "", heart_rate: "", respiratory_rate: "" }
+  });
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const visitId = urlParams.get('id');
+
+  useEffect(() => {
+    if (!visitId) return;
+
+    const loadVetVisit = async () => {
+      try {
+        const currentUser = await User.me();
+        setUser(currentUser);
+
+        const vetVisits = await VetVisit.list();
+        const foundVisit = vetVisits.find(v => v.id === visitId);
+        
+        if (!foundVisit) {
+          navigate(createPageUrl("VeterinaryRecords"));
+          return;
+        }
+        
+        setVisit(foundVisit);
+        setVisitData({
+          ...foundVisit,
+          medications: foundVisit.medications || [""],
+          vital_signs: foundVisit.vital_signs || { temperature: "", heart_rate: "", respiratory_rate: "" }
+        });
+
+        const horses = await Horse.list();
+        const foundHorse = horses.find(h => h.id === foundVisit.horse_id);
+        setHorse(foundHorse);
+      } catch (error) {
+        console.error("Error loading vet visit:", error);
+      }
+    };
+
+    loadVetVisit();
+  }, [visitId, navigate]);
+
+  const handleInputChange = (field, value) => {
+    setVisitData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleVitalsChange = (field, value) => {
+    setVisitData(prev => ({
+      ...prev,
+      vital_signs: { ...prev.vital_signs, [field]: value }
+    }));
+  };
+
+  const handleMedicationChange = (index, value) => {
+    setVisitData(prev => ({
+      ...prev,
+      medications: prev.medications.map((med, i) => i === index ? value : med)
+    }));
+  };
+
+  const addMedication = () => {
+    setVisitData(prev => ({ ...prev, medications: [...prev.medications, ""] }));
+  };
+
+  const removeMedication = (index) => {
+    setVisitData(prev => ({ ...prev, medications: prev.medications.filter((_, i) => i !== index) }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!visitData.visit_type || !visitData.vet_name) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const dataToSubmit = {
+        ...visitData,
+        cost: visitData.cost ? parseFloat(visitData.cost) : undefined,
+        medications: visitData.medications.filter(med => med.trim() !== ""),
+        vital_signs: {
+          temperature: visitData.vital_signs.temperature ? parseFloat(visitData.vital_signs.temperature) : undefined,
+          heart_rate: visitData.vital_signs.heart_rate ? parseInt(visitData.vital_signs.heart_rate) : undefined,
+          respiratory_rate: visitData.vital_signs.respiratory_rate ? parseInt(visitData.vital_signs.respiratory_rate) : undefined,
+        }
+      };
+      await VetVisit.update(visitId, dataToSubmit);
+      navigate(createPageUrl(`HorseDetails?id=${visitData.horse_id}`));
+    } catch (error) {
+      console.error("Error updating vet visit:", error);
+      alert("Error updating vet visit. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (window.confirm("Are you sure you want to delete this vet visit record? This action cannot be undone.")) {
+      try {
+        await VetVisit.delete(visitId);
+        navigate(createPageUrl(`HorseDetails?id=${visitData.horse_id}`));
+      } catch (error) {
+        console.error("Error deleting vet visit:", error);
+        alert("Error deleting vet visit. Please try again.");
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    navigate(createPageUrl(`HorseDetails?id=${visitData.horse_id}`));
+  };
+
+  if (!visit) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" onClick={handleCancel} className="border-amber-300 text-amber-700 hover:bg-amber-50">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold text-gray-900">Edit Vet Visit Record</h1>
+            <p className="text-amber-700">For {horse ? horse.name : 'horse'}</p>
+          </div>
+          <Button variant="outline" onClick={handleDelete} className="border-red-300 text-red-700 hover:bg-red-50">
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete
+          </Button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <Card className="bg-white/70 backdrop-blur-sm border-amber-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Stethoscope className="w-5 h-5 text-amber-600" />
+                Visit Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="visit_date">Visit Date *</Label>
+                  <Input
+                    id="visit_date"
+                    type="date"
+                    value={visitData.visit_date}
+                    onChange={(e) => handleInputChange('visit_date', e.target.value)}
+                    required
+                    className="border-amber-200 focus:border-amber-400"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="visit_type">Visit Type *</Label>
+                  <Select value={visitData.visit_type} onValueChange={(value) => handleInputChange('visit_type', value)}>
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400">
+                      <SelectValue placeholder="Select visit type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Routine Checkup">Routine Checkup</SelectItem>
+                      <SelectItem value="Vaccination">Vaccination</SelectItem>
+                      <SelectItem value="Dental">Dental</SelectItem>
+                      <SelectItem value="Emergency">Emergency</SelectItem>
+                      <SelectItem value="Lameness Exam">Lameness Exam</SelectItem>
+                      <SelectItem value="Pre-Purchase Exam">Pre-Purchase Exam</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="vet_name">Veterinarian *</Label>
+                  <Input
+                    id="vet_name"
+                    value={visitData.vet_name}
+                    onChange={(e) => handleInputChange('vet_name', e.target.value)}
+                    required
+                    className="border-amber-200 focus:border-amber-400"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="cost">Cost ($)</Label>
+                  <Input
+                    id="cost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={visitData.cost}
+                    onChange={(e) => handleInputChange('cost', e.target.value)}
+                    className="border-amber-200 focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="diagnosis">Diagnosis</Label>
+                <Textarea
+                  id="diagnosis"
+                  value={visitData.diagnosis}
+                  onChange={(e) => handleInputChange('diagnosis', e.target.value)}
+                  className="border-amber-200 focus:border-amber-400 h-24"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="treatment">Treatment</Label>
+                <Textarea
+                  id="treatment"
+                  value={visitData.treatment}
+                  onChange={(e) => handleInputChange('treatment', e.target.value)}
+                  className="border-amber-200 focus:border-amber-400 h-24"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>Medications</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addMedication} className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Medication
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {visitData.medications.map((med, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={med}
+                        onChange={(e) => handleMedicationChange(index, e.target.value)}
+                        placeholder="e.g., Bute, 1g twice daily"
+                        className="border-amber-200 focus:border-amber-400"
+                      />
+                      {visitData.medications.length > 1 && (
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeMedication(index)} className="text-red-500 hover:text-red-700">
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Vital Signs</Label>
+                <div className="grid grid-cols-3 gap-4 p-4 border border-amber-200 rounded-lg">
+                  <Input
+                    placeholder="Temp °F"
+                    type="number"
+                    step="0.1"
+                    value={visitData.vital_signs.temperature}
+                    onChange={(e) => handleVitalsChange('temperature', e.target.value)}
+                  />
+                  <Input
+                    placeholder="HR (bpm)"
+                    type="number"
+                    value={visitData.vital_signs.heart_rate}
+                    onChange={(e) => handleVitalsChange('heart_rate', e.target.value)}
+                  />
+                  <Input
+                    placeholder="RR (bpm)"
+                    type="number"
+                    value={visitData.vital_signs.respiratory_rate}
+                    onChange={(e) => handleVitalsChange('respiratory_rate', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="follow_up_date">Follow-up Date</Label>
+                <Input
+                  id="follow_up_date"
+                  type="date"
+                  value={visitData.follow_up_date}
+                  onChange={(e) => handleInputChange('follow_up_date', e.target.value)}
+                  className="border-amber-200 focus:border-amber-400"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="notes">Additional Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={visitData.notes}
+                  onChange={(e) => handleInputChange('notes', e.target.value)}
+                  className="border-amber-200 focus:border-amber-400 h-24"
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-6">
+                <Button type="button" variant="outline" onClick={handleCancel} className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isLoading} className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700">
+                  {isLoading ? 'Saving...' : 'Update Visit Record'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </form>
+        
+        {/* Activity Log */}
+        <Card className="bg-white/70 backdrop-blur-sm border-amber-200 mt-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Activity Log</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm text-gray-600">
+              <p>• Created by {visit.created_by} on {new Date(visit.created_date).toLocaleString()}</p>
+              <p>• Last updated on {new Date(visit.updated_date).toLocaleString()}</p>
+              {user && <p>• Currently being edited by {user.full_name}</p>}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
