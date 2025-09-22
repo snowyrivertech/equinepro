@@ -1,0 +1,285 @@
+
+import React, { useState, useEffect } from "react";
+import { Barn } from "@/entities/Barn";
+import { User } from "@/entities/User";
+import { useNavigate, Link } from "react-router-dom"; // Added Link
+import { createPageUrl } from "@/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Heart, MapPin, Plus, Building, Users } from "lucide-react";
+
+export default function BarnSelection() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [barns, setBarns] = useState([]);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [newBarnData, setNewBarnData] = useState({
+    name: "",
+    location: "",
+    description: "",
+    owner_name: "",
+    contact_email: "",
+    contact_phone: ""
+  });
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const currentUser = await User.me();
+        setUser(currentUser);
+
+        // Don't redirect if user already has a barn - let them switch if they want to
+        // if (currentUser.current_barn_id) {
+        //   navigate(createPageUrl("Dashboard"));
+        //   return;
+        // }
+
+        // Load all barns (in a real app, this might be filtered by user permissions)
+        const allBarns = await Barn.list();
+        
+        // Filter barns user has access to
+        let userBarns = [];
+        if (currentUser.associated_barns && currentUser.associated_barns.length > 0) {
+          userBarns = allBarns.filter(barn => currentUser.associated_barns.includes(barn.id));
+        } else {
+          // If no associated barns, show all barns for initial selection
+          userBarns = allBarns;
+        }
+        
+        setBarns(userBarns);
+      } catch (error) {
+        console.error("Error loading data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [navigate]);
+
+  const handleBarnSelect = async (barnId) => {
+    try {
+      // Update user's current barn
+      await User.updateMyUserData({ current_barn_id: barnId });
+      
+      // Add to associated barns if not already there
+      const updatedAssociatedBarns = user.associated_barns || [];
+      if (!updatedAssociatedBarns.includes(barnId)) {
+        updatedAssociatedBarns.push(barnId);
+        await User.updateMyUserData({ associated_barns: updatedAssociatedBarns });
+      }
+      
+      navigate(createPageUrl("Dashboard"));
+    } catch (error) {
+      console.error("Error selecting barn:", error);
+      alert("Error selecting barn. Please try again.");
+    }
+  };
+
+  const handleCreateBarn = async (e) => {
+    e.preventDefault();
+    if (!newBarnData.name || !newBarnData.location) {
+      alert("Please fill in the required fields (Name and Location)");
+      return;
+    }
+
+    try {
+      const newBarn = await Barn.create({
+        ...newBarnData,
+        settings: {
+          allow_public_viewing: false,
+          require_approval_for_new_users: true
+        }
+      });
+
+      // Automatically select the newly created barn
+      await handleBarnSelect(newBarn.id);
+    } catch (error) {
+      console.error("Error creating barn:", error);
+      alert("Error creating barn. Please try again.");
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setNewBarnData(prev => ({ ...prev, [field]: value }));
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-r from-amber-600 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Heart className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            {user?.current_barn_id ? 'Switch Barn' : 'Welcome to EquineTracker'}
+          </h1>
+          <p className="text-amber-700 text-lg">
+            {user?.current_barn_id ? 'Select a different barn to manage' : 'Select a barn to get started, or create a new one'}
+          </p>
+          
+          {/* Back to Dashboard button if user has a current barn */}
+          {user?.current_barn_id && (
+            <div className="mt-4">
+              <Link to={createPageUrl("Dashboard")}>
+                <Button variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                  Back to Dashboard
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Barn Selection Grid */}
+        {barns.length > 0 ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {barns.map((barn) => (
+              <Card key={barn.id} className="bg-white/70 backdrop-blur-sm border-amber-200 hover:shadow-lg transition-all duration-300 cursor-pointer group">
+                <CardHeader className="pb-4">
+                  <div className="w-12 h-12 bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <Building className="w-6 h-6 text-white" />
+                  </div>
+                  <CardTitle className="text-xl font-bold text-gray-900">{barn.name}</CardTitle>
+                  <div className="flex items-center gap-2 text-amber-700">
+                    <MapPin className="w-4 h-4" />
+                    <span className="text-sm">{barn.location}</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {barn.description && (
+                    <p className="text-gray-600 text-sm">{barn.description}</p>
+                  )}
+                  
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-amber-600" />
+                    <span className="text-sm text-gray-700">Managed by {barn.owner_name || 'Admin'}</span>
+                  </div>
+                  
+                  {barn.max_horses && (
+                    <Badge variant="outline" className="w-fit">
+                      Capacity: {barn.max_horses} horses
+                    </Badge>
+                  )}
+                  
+                  <Button 
+                    onClick={() => handleBarnSelect(barn.id)}
+                    className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700"
+                    variant={user?.current_barn_id === barn.id ? "secondary" : "default"}
+                  >
+                    {user?.current_barn_id === barn.id ? 'Currently Selected' : 'Select This Barn'}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="bg-white/70 backdrop-blur-sm border-amber-200 mb-8">
+            <CardContent className="text-center py-12">
+              <Building className="w-16 h-16 text-amber-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No barns available</h3>
+              <p className="text-amber-700 mb-6">Create your first barn to get started with horse management</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Create New Barn Section */}
+        <div className="text-center">
+          {!showCreateForm ? (
+            <Button 
+              onClick={() => setShowCreateForm(true)}
+              variant="outline"
+              className="border-amber-300 text-amber-700 hover:bg-amber-50"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create New Barn
+            </Button>
+          ) : (
+            <Card className="bg-white/70 backdrop-blur-sm border-amber-200 max-w-2xl mx-auto">
+              <CardHeader>
+                <CardTitle>Create New Barn</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleCreateBarn} className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Barn Name *</label>
+                      <Input 
+                        value={newBarnData.name}
+                        onChange={(e) => handleInputChange('name', e.target.value)}
+                        placeholder="e.g., Sunset Stables"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Location *</label>
+                      <Input 
+                        value={newBarnData.location}
+                        onChange={(e) => handleInputChange('location', e.target.value)}
+                        placeholder="e.g., 123 Horse Lane, Kentucky"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Owner/Manager Name</label>
+                      <Input 
+                        value={newBarnData.owner_name}
+                        onChange={(e) => handleInputChange('owner_name', e.target.value)}
+                        placeholder="Your name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Contact Email</label>
+                      <Input 
+                        type="email"
+                        value={newBarnData.contact_email}
+                        onChange={(e) => handleInputChange('contact_email', e.target.value)}
+                        placeholder="contact@barn.com"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <Input 
+                      value={newBarnData.description}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                      placeholder="Brief description of your barn facility"
+                    />
+                  </div>
+                  
+                  <div className="flex gap-3 justify-end">
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      onClick={() => setShowCreateForm(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit"
+                      className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700"
+                    >
+                      Create Barn
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
