@@ -1,0 +1,362 @@
+import React, { useState, useEffect } from "react";
+import { TrainingLog } from "@/entities/TrainingLog";
+import { Horse } from "@/entities/Horse";
+import { User } from "@/entities/User";
+import { UploadFile } from "@/integrations/Core";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, FileText, Upload, Star, Plus, X } from "lucide-react";
+
+export default function AddTrainingLog() {
+  const navigate = useNavigate();
+  const [horses, setHorses] = useState([]);
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [logData, setLogData] = useState({
+    horse_id: "",
+    date: new Date().toISOString().split('T')[0],
+    discipline: "",
+    duration: "",
+    notes: "",
+    goals_achieved: [""],
+    areas_for_improvement: "",
+    weather_conditions: "",
+    rating: ""
+  });
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const preselectedHorseId = urlParams.get('horse_id');
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const currentUser = await User.me();
+        setUser(currentUser);
+
+        let userHorses = [];
+        const allHorses = await Horse.list();
+        
+        switch (currentUser.role) {
+          case 'Owner':
+            userHorses = allHorses.filter(h => h.owner_id === currentUser.id);
+            break;
+          case 'Rider':
+            userHorses = allHorses.filter(h => h.rider_id === currentUser.id);
+            break;
+          case 'BarnManager':
+            userHorses = allHorses.filter(h => h.barn_manager_id === currentUser.id);
+            break;
+          case 'Vet':
+            userHorses = allHorses.filter(h => h.vet_id === currentUser.id);
+            break;
+          default:
+            userHorses = allHorses;
+        }
+        
+        setHorses(userHorses);
+
+        // If horse_id is provided in URL, preselect it
+        if (preselectedHorseId && userHorses.find(h => h.id === preselectedHorseId)) {
+          setLogData(prev => ({
+            ...prev,
+            horse_id: preselectedHorseId
+          }));
+        }
+      } catch (error) {
+        console.error("Error loading data:", error);
+      }
+    };
+
+    loadData();
+  }, [preselectedHorseId]);
+
+  const handleInputChange = (field, value) => {
+    setLogData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleGoalChange = (index, value) => {
+    setLogData(prev => ({
+      ...prev,
+      goals_achieved: prev.goals_achieved.map((goal, i) => 
+        i === index ? value : goal
+      )
+    }));
+  };
+
+  const addGoal = () => {
+    setLogData(prev => ({
+      ...prev,
+      goals_achieved: [...prev.goals_achieved, ""]
+    }));
+  };
+
+  const removeGoal = (index) => {
+    setLogData(prev => ({
+      ...prev,
+      goals_achieved: prev.goals_achieved.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!logData.horse_id || !logData.discipline || !logData.notes) {
+      alert("Please fill in the required fields (Horse, Discipline, and Notes)");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const dataToSubmit = {
+        ...logData,
+        duration: logData.duration ? parseInt(logData.duration) : undefined,
+        rating: logData.rating ? parseInt(logData.rating) : undefined,
+        goals_achieved: logData.goals_achieved.filter(goal => goal.trim() !== ""),
+        rider_id: user?.id
+      };
+
+      await TrainingLog.create(dataToSubmit);
+      navigate(createPageUrl(`HorseDetails?id=${logData.horse_id}`));
+    } catch (error) {
+      console.error("Error creating training log:", error);
+      alert("Error creating training log. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="outline"
+            onClick={() => navigate(createPageUrl("TrainingLogs"))}
+            className="border-amber-300 text-amber-700 hover:bg-amber-50"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Add Training Log</h1>
+            <p className="text-amber-700">Record a new training session</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <Card className="bg-white/70 backdrop-blur-sm border-amber-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-amber-600" />
+                Training Session Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Horse Selection */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="horse_id">Horse *</Label>
+                  <Select
+                    value={logData.horse_id}
+                    onValueChange={(value) => handleInputChange('horse_id', value)}
+                  >
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400">
+                      <SelectValue placeholder="Select a horse" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {horses.map((horse) => (
+                        <SelectItem key={horse.id} value={horse.id}>
+                          {horse.name} ({horse.breed})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date *</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={logData.date}
+                    onChange={(e) => handleInputChange('date', e.target.value)}
+                    className="border-amber-200 focus:border-amber-400"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="discipline">Discipline *</Label>
+                  <Select
+                    value={logData.discipline}
+                    onValueChange={(value) => handleInputChange('discipline', value)}
+                  >
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400">
+                      <SelectValue placeholder="Select discipline" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Dressage">Dressage</SelectItem>
+                      <SelectItem value="Show Jumping">Show Jumping</SelectItem>
+                      <SelectItem value="Eventing">Eventing</SelectItem>
+                      <SelectItem value="Western">Western</SelectItem>
+                      <SelectItem value="Trail">Trail</SelectItem>
+                      <SelectItem value="Racing">Racing</SelectItem>
+                      <SelectItem value="Ground Work">Ground Work</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="duration">Duration (minutes)</Label>
+                  <Input
+                    id="duration"
+                    type="number"
+                    min="0"
+                    value={logData.duration}
+                    onChange={(e) => handleInputChange('duration', e.target.value)}
+                    className="border-amber-200 focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="weather_conditions">Weather Conditions</Label>
+                  <Input
+                    id="weather_conditions"
+                    value={logData.weather_conditions}
+                    onChange={(e) => handleInputChange('weather_conditions', e.target.value)}
+                    className="border-amber-200 focus:border-amber-400"
+                    placeholder="e.g., Clear and cool, Light rain"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="rating">Session Rating</Label>
+                  <Select
+                    value={logData.rating}
+                    onValueChange={(value) => handleInputChange('rating', value)}
+                  >
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400">
+                      <SelectValue placeholder="Rate this session" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">⭐ 1 - Poor</SelectItem>
+                      <SelectItem value="2">⭐⭐ 2 - Fair</SelectItem>
+                      <SelectItem value="3">⭐⭐⭐ 3 - Good</SelectItem>
+                      <SelectItem value="4">⭐⭐⭐⭐ 4 - Very Good</SelectItem>
+                      <SelectItem value="5">⭐⭐⭐⭐⭐ 5 - Excellent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Training Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="notes">Training Notes *</Label>
+                <Textarea
+                  id="notes"
+                  value={logData.notes}
+                  onChange={(e) => handleInputChange('notes', e.target.value)}
+                  className="border-amber-200 focus:border-amber-400 h-32"
+                  placeholder="Describe the training session, what you worked on, how the horse performed..."
+                  required
+                />
+              </div>
+
+              {/* Goals Achieved */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>Goals Achieved</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addGoal}
+                    className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Goal
+                  </Button>
+                </div>
+                
+                <div className="space-y-2">
+                  {logData.goals_achieved.map((goal, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={goal}
+                        onChange={(e) => handleGoalChange(index, e.target.value)}
+                        className="border-amber-200 focus:border-amber-400"
+                        placeholder="e.g., Clean jumping rounds, Improved collection"
+                      />
+                      {logData.goals_achieved.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeGoal(index)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Areas for Improvement */}
+              <div className="space-y-2">
+                <Label htmlFor="areas_for_improvement">Areas for Improvement</Label>
+                <Textarea
+                  id="areas_for_improvement"
+                  value={logData.areas_for_improvement}
+                  onChange={(e) => handleInputChange('areas_for_improvement', e.target.value)}
+                  className="border-amber-200 focus:border-amber-400 h-24"
+                  placeholder="What needs work in future sessions..."
+                />
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex justify-end gap-3 pt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate(createPageUrl("TrainingLogs"))}
+                  className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving Log...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-4 h-4 mr-2" />
+                      Save Training Log
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </form>
+      </div>
+    </div>
+  );
+}
