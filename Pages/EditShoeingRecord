@@ -1,0 +1,250 @@
+
+import React, { useState, useEffect } from "react";
+import { ShoeingRecord } from "@/entities/ShoeingRecord";
+import { Horse } from "@/entities/Horse";
+import { User } from "@/entities/User";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Hammer, Trash2 } from "lucide-react";
+
+export default function EditShoeingRecord() {
+  const navigate = useNavigate();
+  const [record, setRecord] = useState(null);
+  const [horse, setHorse] = useState(null);
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [recordData, setRecordData] = useState({
+    horse_id: "",
+    shoeing_date: "",
+    farrier_name: "",
+    type: "",
+    notes: "",
+    cost: "",
+    next_due_date: ""
+  });
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const recordId = urlParams.get('id');
+
+  useEffect(() => {
+    if (!recordId) return;
+
+    const loadShoeingRecord = async () => {
+      try {
+        const currentUser = await User.me();
+        setUser(currentUser);
+
+        const shoeingRecords = await ShoeingRecord.list();
+        const foundRecord = shoeingRecords.find(r => r.id === recordId);
+        
+        if (!foundRecord) {
+          navigate(createPageUrl("ShoeingRecords"));
+          return;
+        }
+        
+        setRecord(foundRecord);
+        setRecordData(foundRecord);
+
+        const horses = await Horse.list();
+        const foundHorse = horses.find(h => h.id === foundRecord.horse_id);
+        setHorse(foundHorse);
+      } catch (error) {
+        console.error("Error loading shoeing record:", error);
+      }
+    };
+
+    loadShoeingRecord();
+  }, [recordId, navigate]);
+
+  const handleInputChange = (field, value) => {
+    setRecordData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!recordData.type || !recordData.farrier_name) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const dataToSubmit = {
+        ...recordData,
+        cost: recordData.cost ? parseFloat(recordData.cost) : undefined,
+      };
+      await ShoeingRecord.update(recordId, dataToSubmit);
+      navigate(createPageUrl(`HorseDetails?id=${recordData.horse_id}`));
+    } catch (error) {
+      console.error("Error updating shoeing record:", error);
+      alert("Error updating shoeing record. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (window.confirm("Are you sure you want to delete this shoeing record? This action cannot be undone.")) {
+      try {
+        await ShoeingRecord.delete(recordId);
+        navigate(createPageUrl(`HorseDetails?id=${recordData.horse_id}`));
+      } catch (error) {
+        console.error("Error deleting shoeing record:", error);
+        alert("Error deleting shoeing record. Please try again.");
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    navigate(createPageUrl(`HorseDetails?id=${recordData.horse_id}`));
+  };
+
+  if (!record) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" onClick={handleCancel} className="border-amber-300 text-amber-700 hover:bg-amber-50">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold text-gray-900">Edit Shoeing Record</h1>
+            <p className="text-amber-700">For {horse ? horse.name : 'horse'}</p>
+          </div>
+          <Button variant="outline" onClick={handleDelete} className="border-red-300 text-red-700 hover:bg-red-50">
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete
+          </Button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <Card className="bg-white/70 backdrop-blur-sm border-amber-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Hammer className="w-5 h-5 text-amber-600" />
+                Farrier Visit Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="shoeing_date">Shoeing Date *</Label>
+                  <Input
+                    id="shoeing_date"
+                    type="date"
+                    value={recordData.shoeing_date}
+                    onChange={(e) => handleInputChange('shoeing_date', e.target.value)}
+                    required
+                    className="border-amber-200 focus:border-amber-400"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="farrier_name">Farrier Name *</Label>
+                  <Input
+                    id="farrier_name"
+                    value={recordData.farrier_name}
+                    onChange={(e) => handleInputChange('farrier_name', e.target.value)}
+                    required
+                    className="border-amber-200 focus:border-amber-400"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="type">Type *</Label>
+                  <Select value={recordData.type} onValueChange={(value) => handleInputChange('type', value)}>
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Full Set">Full Set</SelectItem>
+                      <SelectItem value="Half Set">Half Set</SelectItem>
+                      <SelectItem value="Fronts">Fronts</SelectItem>
+                      <SelectItem value="Rears">Rears</SelectItem>
+                      <SelectItem value="Trim">Trim</SelectItem>
+                      <SelectItem value="Reset">Reset</SelectItem>
+                      <SelectItem value="Corrective">Corrective</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="cost">Cost ($)</Label>
+                  <Input
+                    id="cost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={recordData.cost}
+                    onChange={(e) => handleInputChange('cost', e.target.value)}
+                    className="border-amber-200 focus:border-amber-400"
+                  />
+                </div>
+                
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="next_due_date">Next Due Date</Label>
+                  <Input
+                    id="next_due_date"
+                    type="date"
+                    value={recordData.next_due_date}
+                    onChange={(e) => handleInputChange('next_due_date', e.target.value)}
+                    className="border-amber-200 focus:border-amber-400"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={recordData.notes}
+                  onChange={(e) => handleInputChange('notes', e.target.value)}
+                  placeholder="e.g., Added pads to front, horse was sensitive on left front."
+                  className="border-amber-200 focus:border-amber-400 h-24"
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-6">
+                <Button type="button" variant="outline" onClick={handleCancel} className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isLoading} className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700">
+                  {isLoading ? 'Saving...' : 'Update Record'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </form>
+        
+        {/* Activity Log */}
+        <Card className="bg-white/70 backdrop-blur-sm border-amber-200 mt-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Activity Log</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm text-gray-600">
+              <p>• Created by {record.created_by} on {new Date(record.created_date).toLocaleString()}</p>
+              <p>• Last updated on {new Date(record.updated_date).toLocaleString()}</p>
+              {user && <p>• Currently being edited by {user.full_name}</p>}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
