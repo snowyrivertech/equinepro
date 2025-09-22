@@ -1,0 +1,155 @@
+import React, { useState, useEffect } from "react";
+import { FeedingSchedule } from "@/entities/FeedingSchedule";
+import { Horse } from "@/entities/Horse";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Utensils } from "lucide-react";
+
+export default function AddFeedingSchedule() {
+  const navigate = useNavigate();
+  const [horse, setHorse] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [feedingData, setFeedingData] = useState({
+    horse_id: "",
+    feed_type: "",
+    amount: "",
+    time_of_day: "",
+    frequency: "Daily",
+    instructions: ""
+  });
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const horseId = urlParams.get('horse_id');
+
+  useEffect(() => {
+    if (horseId) {
+      setFeedingData(prev => ({ ...prev, horse_id: horseId }));
+      const fetchHorse = async () => {
+        const horses = await Horse.list();
+        const foundHorse = horses.find(h => h.id === horseId);
+        setHorse(foundHorse);
+      };
+      fetchHorse();
+    }
+  }, [horseId]);
+
+  const handleInputChange = (field, value) => {
+    setFeedingData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!feedingData.horse_id || !feedingData.feed_type || !feedingData.amount || !feedingData.time_of_day) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await FeedingSchedule.create(feedingData);
+      navigate(createPageUrl(`HorseDetails?id=${horseId}`));
+    } catch (error) {
+      console.error("Error creating feeding schedule:", error);
+      alert("Error creating feeding schedule. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    navigate(horseId ? createPageUrl(`HorseDetails?id=${horseId}`) : createPageUrl("Horses"));
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            className="border-amber-300 text-amber-700 hover:bg-amber-50"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Add Feeding Schedule</h1>
+            <p className="text-amber-700">For {horse ? horse.name : 'your horse'}</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <Card className="bg-white/70 backdrop-blur-sm border-amber-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Utensils className="w-5 h-5 text-amber-600" />
+                Feeding Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="feed_type">Feed Type *</Label>
+                  <Select value={feedingData.feed_type} onValueChange={(value) => handleInputChange('feed_type', value)}>
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400"><SelectValue placeholder="Select feed type" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Hay">Hay</SelectItem>
+                      <SelectItem value="Grain">Grain</SelectItem>
+                      <SelectItem value="Pellets">Pellets</SelectItem>
+                      <SelectItem value="Supplements">Supplements</SelectItem>
+                      <SelectItem value="Treats">Treats</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Amount *</Label>
+                  <Input id="amount" value={feedingData.amount} onChange={(e) => handleInputChange('amount', e.target.value)} placeholder="e.g., 2 flakes, 3 scoops" required className="border-amber-200 focus:border-amber-400"/>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="time_of_day">Time of Day *</Label>
+                  <Select value={feedingData.time_of_day} onValueChange={(value) => handleInputChange('time_of_day', value)}>
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400"><SelectValue placeholder="Select time" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Morning">Morning</SelectItem>
+                      <SelectItem value="Midday">Midday</SelectItem>
+                      <SelectItem value="Evening">Evening</SelectItem>
+                      <SelectItem value="Night">Night</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="frequency">Frequency</Label>
+                  <Select value={feedingData.frequency} onValueChange={(value) => handleInputChange('frequency', value)}>
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Daily">Daily</SelectItem>
+                      <SelectItem value="Twice Daily">Twice Daily</SelectItem>
+                      <SelectItem value="Three Times Daily">Three Times Daily</SelectItem>
+                      <SelectItem value="As Needed">As Needed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="instructions">Special Instructions</Label>
+                <Textarea id="instructions" value={feedingData.instructions} onChange={(e) => handleInputChange('instructions', e.target.value)} placeholder="e.g., Soak pellets, mix with supplements" className="border-amber-200 focus:border-amber-400 h-24"/>
+              </div>
+              <div className="flex justify-end gap-3 pt-6">
+                <Button type="button" variant="outline" onClick={handleCancel} className="border-amber-300 text-amber-700 hover:bg-amber-50">Cancel</Button>
+                <Button type="submit" disabled={isLoading} className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700">
+                  {isLoading ? 'Saving...' : 'Save Feeding'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </form>
+      </div>
+    </div>
+  );
+}
