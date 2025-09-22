@@ -1,0 +1,110 @@
+{
+  "name": "Horse",
+  "type": "object",
+  "properties": {
+    "barn_id": {
+      "type": "string",
+      "description": "ID of the barn where the horse is located"
+    },
+    "name": {
+      "type": "string",
+      "description": "Horse's name"
+    },
+    "breed": {
+      "type": "string",
+      "description": "Horse breed"
+    },
+    "age": {
+      "type": "number",
+      "description": "Horse age in years"
+    },
+    "gender": {
+      "type": "string",
+      "enum": [
+        "Mare",
+        "Stallion",
+        "Gelding"
+      ],
+      "description": "Horse gender"
+    },
+    "color": {
+      "type": "string",
+      "description": "Horse color/markings"
+    },
+    "owner_id": {
+      "type": "string",
+      "description": "ID of the horse owner"
+    },
+    "rider_id": {
+      "type": "string",
+      "description": "ID of the primary rider"
+    },
+    "barn_manager_id": {
+      "type": "string",
+      "description": "ID of the barn manager"
+    },
+    "vet_id": {
+      "type": "string",
+      "description": "ID of the primary veterinarian"
+    },
+    "notes": {
+      "type": "string",
+      "description": "General notes about the horse"
+    },
+    "for_sale": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the horse is for sale"
+    },
+    "sale_price": {
+      "type": "number",
+      "description": "Asking price if for sale"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "In Training",
+        "For Sale",
+        "Injured",
+        "Retired"
+      ],
+      "default": "Active",
+      "description": "Current status of the horse"
+    },
+    "discipline": {
+      "type": "string",
+      "enum": [
+        "Dressage",
+        "Show Jumping",
+        "Eventing",
+        "Western",
+        "Trail",
+        "Racing",
+        "Other"
+      ],
+      "description": "Primary discipline"
+    },
+    "height": {
+      "type": "string",
+      "description": "Horse height (hands)"
+    },
+    "registration_number": {
+      "type": "string",
+      "description": "Registration or identification number"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "Main photo of the horse"
+    },
+    "medical_notes": {
+      "type": "string",
+      "description": "Medical history and notes"
+    }
+  },
+  "required": [
+    "barn_id",
+    "name",
+    "breed"
+  ]
+}
