@@ -1,0 +1,294 @@
+import React, { useState, useEffect } from "react";
+import { TrainingLog } from "@/entities/TrainingLog";
+import { Horse } from "@/entities/Horse";
+import { User } from "@/entities/User";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { 
+  FileText, 
+  Plus, 
+  Search, 
+  Filter,
+  Calendar,
+  Star,
+  Heart,
+  Award
+} from "lucide-react";
+import { format } from "date-fns";
+
+export default function TrainingLogs() {
+  const [trainingLogs, setTrainingLogs] = useState([]);
+  const [horses, setHorses] = useState([]);
+  const [user, setUser] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [disciplineFilter, setDisciplineFilter] = useState("all");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadTrainingLogs();
+  }, []);
+
+  const loadTrainingLogs = async () => {
+    try {
+      const currentUser = await User.me();
+      setUser(currentUser);
+
+      const allHorses = await Horse.list();
+      const allLogs = await TrainingLog.list('-created_date');
+      
+      // Filter based on user role
+      let userHorses = [];
+      switch (currentUser.role) {
+        case 'Owner':
+          userHorses = allHorses.filter(h => h.owner_id === currentUser.id);
+          break;
+        case 'Rider':
+          userHorses = allHorses.filter(h => h.rider_id === currentUser.id);
+          break;
+        case 'BarnManager':
+          userHorses = allHorses.filter(h => h.barn_manager_id === currentUser.id);
+          break;
+        case 'Vet':
+          userHorses = allHorses.filter(h => h.vet_id === currentUser.id);
+          break;
+        default:
+          userHorses = allHorses;
+      }
+      
+      setHorses(userHorses);
+      
+      // Filter logs to only show those for horses user has access to
+      const userHorseIds = userHorses.map(h => h.id);
+      const userLogs = allLogs.filter(log => userHorseIds.includes(log.horse_id));
+      setTrainingLogs(userLogs);
+
+    } catch (error) {
+      console.error("Error loading training logs:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getHorseName = (horseId) => {
+    const horse = horses.find(h => h.id === horseId);
+    return horse ? horse.name : 'Unknown Horse';
+  };
+
+  const getDisciplineColor = (discipline) => {
+    const colors = {
+      'Dressage': 'bg-purple-100 text-purple-800',
+      'Show Jumping': 'bg-blue-100 text-blue-800',
+      'Eventing': 'bg-green-100 text-green-800',
+      'Western': 'bg-yellow-100 text-yellow-800',
+      'Trail': 'bg-orange-100 text-orange-800',
+      'Racing': 'bg-red-100 text-red-800',
+      'Ground Work': 'bg-gray-100 text-gray-800',
+      'Other': 'bg-amber-100 text-amber-800'
+    };
+    return colors[discipline] || 'bg-gray-100 text-gray-800';
+  };
+
+  const filteredLogs = trainingLogs.filter(log => {
+    const horseName = getHorseName(log.horse_id);
+    const matchesSearch = 
+      horseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.notes.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.discipline.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesDiscipline = disciplineFilter === "all" || log.discipline === disciplineFilter;
+    
+    return matchesSearch && matchesDiscipline;
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Training Logs</h1>
+            <p className="text-amber-700">Track and review training sessions</p>
+          </div>
+          
+          <Link to={createPageUrl("AddTrainingLog")}>
+            <Button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Training Log
+            </Button>
+          </Link>
+        </div>
+
+        {/* Search and Filters */}
+        <Card className="bg-white/70 backdrop-blur-sm border-amber-200 mb-6">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-3 w-4 h-4 text-amber-600" />
+                <Input
+                  placeholder="Search by horse name, discipline, or notes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 border-amber-200 focus:border-amber-400"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-amber-600" />
+                <select
+                  value={disciplineFilter}
+                  onChange={(e) => setDisciplineFilter(e.target.value)}
+                  className="px-3 py-2 border border-amber-200 rounded-lg bg-white focus:border-amber-400 focus:outline-none"
+                >
+                  <option value="all">All Disciplines</option>
+                  <option value="Dressage">Dressage</option>
+                  <option value="Show Jumping">Show Jumping</option>
+                  <option value="Eventing">Eventing</option>
+                  <option value="Western">Western</option>
+                  <option value="Trail">Trail</option>
+                  <option value="Racing">Racing</option>
+                  <option value="Ground Work">Ground Work</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Training Logs */}
+        {filteredLogs.length === 0 ? (
+          <Card className="bg-white/70 backdrop-blur-sm border-amber-200">
+            <CardContent className="text-center py-12">
+              <FileText className="w-16 h-16 text-amber-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                {searchTerm || disciplineFilter !== "all" 
+                  ? 'No training logs match your criteria' 
+                  : 'No training logs yet'}
+              </h3>
+              <p className="text-amber-700 mb-6">
+                {searchTerm || disciplineFilter !== "all" 
+                  ? 'Try adjusting your search or filters' 
+                  : 'Start by recording your first training session'}
+              </p>
+              {!(searchTerm || disciplineFilter !== "all") && (
+                <Link to={createPageUrl("AddTrainingLog")}>
+                  <Button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add First Training Log
+                  </Button>
+                </Link>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6">
+            {filteredLogs.map((log) => (
+              <Card key={log.id} className="bg-white/70 backdrop-blur-sm border-amber-200 hover:shadow-lg transition-all duration-300">
+                <CardContent className="p-6">
+                  <div className="flex flex-col md:flex-row gap-6">
+                    {/* Left side - Main info */}
+                    <div className="flex-1 space-y-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-gradient-to-r from-amber-500 to-orange-500 rounded-full flex items-center justify-center">
+                            <Heart className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900">
+                              {getHorseName(log.horse_id)}
+                            </h3>
+                            <p className="text-amber-700 text-sm">
+                              {format(new Date(log.date), "MMMM d, yyyy")}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Badge className={getDisciplineColor(log.discipline)}>
+                            {log.discipline}
+                          </Badge>
+                          {log.rating && (
+                            <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg">
+                              <Star className="w-4 h-4 fill-current text-amber-500" />
+                              <span className="text-sm font-medium text-amber-700">{log.rating}/5</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <p className="text-gray-700">{log.notes}</p>
+                      
+                      {log.goals_achieved && log.goals_achieved.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                            <Award className="w-4 h-4 text-green-600" />
+                            Goals Achieved
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {log.goals_achieved.map((goal, index) => (
+                              <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                {goal}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {log.areas_for_improvement && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-1">Areas for Improvement</h4>
+                          <p className="text-gray-600 text-sm">{log.areas_for_improvement}</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Right side - Session details */}
+                    <div className="md:w-64 space-y-3">
+                      <div className="bg-amber-50 rounded-lg p-4 space-y-2">
+                        <h4 className="font-medium text-amber-900 mb-2">Session Details</h4>
+                        {log.duration && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar className="w-4 h-4 text-amber-600" />
+                            <span className="text-gray-700">{log.duration} minutes</span>
+                          </div>
+                        )}
+                        {log.weather_conditions && (
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">Weather:</span> {log.weather_conditions}
+                          </p>
+                        )}
+                        <p className="text-xs text-amber-700">
+                          Logged {format(new Date(log.created_date), "MMM d 'at' h:mm a")}
+                        </p>
+                      </div>
+                      
+                      <Link to={createPageUrl(`HorseDetails?id=${log.horse_id}`)}>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full border-amber-300 text-amber-700 hover:bg-amber-50"
+                        >
+                          View Horse Profile
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
