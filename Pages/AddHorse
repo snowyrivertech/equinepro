@@ -1,0 +1,396 @@
+import React, { useState, useEffect } from "react";
+import { Horse } from "@/entities/Horse";
+import { User } from "@/entities/User";
+import { UploadFile } from "@/integrations/Core";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, Heart, Upload, Image } from "lucide-react";
+
+export default function AddHorse() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [horseData, setHorseData] = useState({
+    name: "",
+    breed: "",
+    age: "",
+    gender: "",
+    color: "",
+    status: "Active",
+    discipline: "",
+    height: "",
+    registration_number: "",
+    notes: "",
+    for_sale: false,
+    sale_price: "",
+    photo_url: "",
+    medical_notes: ""
+  });
+
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  const loadUser = async () => {
+    try {
+      const currentUser = await User.me();
+      setUser(currentUser);
+    } catch (error) {
+      console.error("Error loading user:", error);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setHorseData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleImageUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const { file_url } = await UploadFile({ file });
+      setHorseData(prev => ({
+        ...prev,
+        photo_url: file_url
+      }));
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      alert("Error uploading image. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!horseData.name || !horseData.breed) {
+      alert("Please fill in the required fields (Name and Breed)");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const dataToSubmit = {
+        ...horseData,
+        age: horseData.age ? parseInt(horseData.age) : undefined,
+        sale_price: horseData.sale_price ? parseFloat(horseData.sale_price) : undefined,
+      };
+
+      // Set relationships based on user role
+      if (user?.role === 'Owner') {
+        dataToSubmit.owner_id = user.id;
+      } else if (user?.role === 'Rider') {
+        dataToSubmit.rider_id = user.id;
+      } else if (user?.role === 'BarnManager') {
+        dataToSubmit.barn_manager_id = user.id;
+      } else if (user?.role === 'Vet') {
+        dataToSubmit.vet_id = user.id;
+      }
+
+      await Horse.create(dataToSubmit);
+      navigate(createPageUrl("Horses"));
+    } catch (error) {
+      console.error("Error creating horse:", error);
+      alert("Error creating horse. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="outline"
+            onClick={() => navigate(createPageUrl("Horses"))}
+            className="border-amber-300 text-amber-700 hover:bg-amber-50"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Add New Horse</h1>
+            <p className="text-amber-700">Add a horse to your management system</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <Card className="bg-white/70 backdrop-blur-sm border-amber-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-amber-600" />
+                Horse Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Photo Upload */}
+              <div className="space-y-2">
+                <Label>Horse Photo</Label>
+                <div className="flex items-center gap-4">
+                  <div className="w-24 h-24 bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg flex items-center justify-center overflow-hidden">
+                    {horseData.photo_url ? (
+                      <img 
+                        src={horseData.photo_url} 
+                        alt="Horse"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Heart className="w-8 h-8 text-amber-500" />
+                    )}
+                  </div>
+                  <div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="photo-upload"
+                    />
+                    <Label htmlFor="photo-upload" className="cursor-pointer">
+                      <Button type="button" variant="outline" disabled={isUploading} asChild>
+                        <span>
+                          {isUploading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-amber-600 mr-2"></div>
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2" />
+                              Upload Photo
+                            </>
+                          )}
+                        </span>
+                      </Button>
+                    </Label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Basic Information */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name *</Label>
+                  <Input
+                    id="name"
+                    value={horseData.name}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    className="border-amber-200 focus:border-amber-400"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="breed">Breed *</Label>
+                  <Input
+                    id="breed"
+                    value={horseData.breed}
+                    onChange={(e) => handleInputChange('breed', e.target.value)}
+                    className="border-amber-200 focus:border-amber-400"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="age">Age</Label>
+                  <Input
+                    id="age"
+                    type="number"
+                    min="0"
+                    max="50"
+                    value={horseData.age}
+                    onChange={(e) => handleInputChange('age', e.target.value)}
+                    className="border-amber-200 focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender</Label>
+                  <Select
+                    value={horseData.gender}
+                    onValueChange={(value) => handleInputChange('gender', value)}
+                  >
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400">
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Mare">Mare</SelectItem>
+                      <SelectItem value="Stallion">Stallion</SelectItem>
+                      <SelectItem value="Gelding">Gelding</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="color">Color</Label>
+                  <Input
+                    id="color"
+                    value={horseData.color}
+                    onChange={(e) => handleInputChange('color', e.target.value)}
+                    className="border-amber-200 focus:border-amber-400"
+                    placeholder="e.g., Bay, Chestnut, Black"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="height">Height</Label>
+                  <Input
+                    id="height"
+                    value={horseData.height}
+                    onChange={(e) => handleInputChange('height', e.target.value)}
+                    className="border-amber-200 focus:border-amber-400"
+                    placeholder="e.g., 15.2 hands"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={horseData.status}
+                    onValueChange={(value) => handleInputChange('status', value)}
+                  >
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="In Training">In Training</SelectItem>
+                      <SelectItem value="For Sale">For Sale</SelectItem>
+                      <SelectItem value="Injured">Injured</SelectItem>
+                      <SelectItem value="Retired">Retired</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="discipline">Primary Discipline</Label>
+                  <Select
+                    value={horseData.discipline}
+                    onValueChange={(value) => handleInputChange('discipline', value)}
+                  >
+                    <SelectTrigger className="border-amber-200 focus:border-amber-400">
+                      <SelectValue placeholder="Select discipline" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Dressage">Dressage</SelectItem>
+                      <SelectItem value="Show Jumping">Show Jumping</SelectItem>
+                      <SelectItem value="Eventing">Eventing</SelectItem>
+                      <SelectItem value="Western">Western</SelectItem>
+                      <SelectItem value="Trail">Trail</SelectItem>
+                      <SelectItem value="Racing">Racing</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="registration_number">Registration Number</Label>
+                <Input
+                  id="registration_number"
+                  value={horseData.registration_number}
+                  onChange={(e) => handleInputChange('registration_number', e.target.value)}
+                  className="border-amber-200 focus:border-amber-400"
+                />
+              </div>
+
+              {/* Sale Information */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="for_sale"
+                    checked={horseData.for_sale}
+                    onCheckedChange={(checked) => handleInputChange('for_sale', checked)}
+                  />
+                  <Label htmlFor="for_sale">Horse is for sale</Label>
+                </div>
+
+                {horseData.for_sale && (
+                  <div className="space-y-2">
+                    <Label htmlFor="sale_price">Sale Price ($)</Label>
+                    <Input
+                      id="sale_price"
+                      type="number"
+                      min="0"
+                      value={horseData.sale_price}
+                      onChange={(e) => handleInputChange('sale_price', e.target.value)}
+                      className="border-amber-200 focus:border-amber-400"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="notes">General Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={horseData.notes}
+                  onChange={(e) => handleInputChange('notes', e.target.value)}
+                  className="border-amber-200 focus:border-amber-400 h-24"
+                  placeholder="Any additional information about the horse..."
+                />
+              </div>
+
+              {user?.role === 'Vet' && (
+                <div className="space-y-2">
+                  <Label htmlFor="medical_notes">Medical Notes</Label>
+                  <Textarea
+                    id="medical_notes"
+                    value={horseData.medical_notes}
+                    onChange={(e) => handleInputChange('medical_notes', e.target.value)}
+                    className="border-amber-200 focus:border-amber-400 h-24"
+                    placeholder="Medical history and notes..."
+                  />
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <div className="flex justify-end gap-3 pt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate(createPageUrl("Horses"))}
+                  className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Adding Horse...
+                    </>
+                  ) : (
+                    <>
+                      <Heart className="w-4 h-4 mr-2" />
+                      Add Horse
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </form>
+      </div>
+    </div>
+  );
+}
