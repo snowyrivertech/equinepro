@@ -1,0 +1,61 @@
+{
+  "name": "FeedingSchedule",
+  "type": "object",
+  "properties": {
+    "barn_id": {
+      "type": "string",
+      "description": "ID of the barn"
+    },
+    "horse_id": {
+      "type": "string",
+      "description": "ID of the horse"
+    },
+    "feed_type": {
+      "type": "string",
+      "enum": [
+        "Hay",
+        "Grain",
+        "Pellets",
+        "Supplements",
+        "Treats"
+      ],
+      "description": "Type of feed"
+    },
+    "amount": {
+      "type": "string",
+      "description": "Amount to feed (e.g., '2 flakes', '3 scoops')"
+    },
+    "time_of_day": {
+      "type": "string",
+      "enum": [
+        "Morning",
+        "Midday",
+        "Evening",
+        "Night"
+      ],
+      "description": "Feeding time"
+    },
+    "instructions": {
+      "type": "string",
+      "description": "Special feeding instructions"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "Daily",
+        "Twice Daily",
+        "Three Times Daily",
+        "As Needed"
+      ],
+      "default": "Daily",
+      "description": "How often to feed"
+    }
+  },
+  "required": [
+    "barn_id",
+    "horse_id",
+    "feed_type",
+    "amount",
+    "time_of_day"
+  ]
+}
