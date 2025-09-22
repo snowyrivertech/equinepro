@@ -1,0 +1,118 @@
+import React, { useState, useEffect } from "react";
+import { FeedingSchedule } from "@/entities/FeedingSchedule";
+import { Horse } from "@/entities/Horse";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Utensils, Wheat, Drumstick, Pill } from "lucide-react";
+
+export default function FeedingSchedules() {
+  const [schedules, setSchedules] = useState([]);
+  const [horses, setHorses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [allSchedules, allHorses] = await Promise.all([
+          FeedingSchedule.list(),
+          Horse.list()
+        ]);
+        setSchedules(allSchedules);
+        setHorses(allHorses);
+      } catch (error) {
+        console.error("Error loading data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+  
+  const getHorseName = (horseId) => horses.find(h => h.id === horseId)?.name || 'Unknown Horse';
+  
+  const feedTypeIcons = {
+    "Hay": <Wheat className="w-4 h-4 text-yellow-600" />,
+    "Grain": <Drumstick className="w-4 h-4 text-orange-600" />,
+    "Pellets": <Pill className="w-4 h-4 text-green-600" />,
+    "Supplements": <Plus className="w-4 h-4 text-blue-600" />,
+    "Treats": <Utensils className="w-4 h-4 text-pink-600" />
+  };
+
+  const schedulesByTime = {
+    Morning: schedules.filter(s => s.time_of_day === "Morning"),
+    Midday: schedules.filter(s => s.time_of_day === "Midday"),
+    Evening: schedules.filter(s => s.time_of_day === "Evening"),
+    Night: schedules.filter(s => s.time_of_day === "Night"),
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Feeding Schedules</h1>
+            <p className="text-amber-700">Manage daily feeding routines for all horses.</p>
+          </div>
+          <Link to={createPageUrl("AddFeedingSchedule")}>
+            <Button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700">
+              <Plus className="w-4 h-4 mr-2" /> Add Feeding Schedule
+            </Button>
+          </Link>
+        </div>
+
+        {schedules.length === 0 ? (
+           <Card className="bg-white/70 backdrop-blur-sm border-amber-200">
+             <CardContent className="text-center py-12">
+               <Utensils className="w-16 h-16 text-amber-400 mx-auto mb-4" />
+               <h3 className="text-xl font-semibold text-gray-900 mb-2">No Feeding Schedules Found</h3>
+               <p className="text-amber-700 mb-6">Get started by creating the first feeding schedule.</p>
+                <Link to={createPageUrl("AddFeedingSchedule")}>
+                  <Button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700">
+                    Create Schedule
+                  </Button>
+                </Link>
+             </CardContent>
+           </Card>
+        ) : (
+          <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-6">
+            {Object.entries(schedulesByTime).map(([time, timeSchedules]) => (
+              <Card key={time} className="bg-white/70 backdrop-blur-sm border-amber-200">
+                <CardHeader>
+                  <CardTitle className="text-xl text-amber-900">{time}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {timeSchedules.length > 0 ? timeSchedules.map(schedule => (
+                    <div key={schedule.id} className="p-3 bg-white border border-amber-100 rounded-lg">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-gray-800">{getHorseName(schedule.horse_id)}</p>
+                          <p className="text-sm text-gray-600">{schedule.amount}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {feedTypeIcons[schedule.feed_type]}
+                          <Badge variant="outline" className="text-amber-700 border-amber-300">{schedule.feed_type}</Badge>
+                        </div>
+                      </div>
+                      {schedule.instructions && <p className="text-xs text-gray-500 mt-2">{schedule.instructions}</p>}
+                    </div>
+                  )) : <p className="text-sm text-gray-500">No feedings scheduled for this time.</p>}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
